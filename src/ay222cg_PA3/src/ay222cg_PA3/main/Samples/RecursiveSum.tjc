@@ -1,0 +1,26 @@
+RecursiveSum.main
+0	iconst 10
+1	invokevirtual Test.sum
+2	print
+3	stop
+
+Test.sum
+0	istore #0
+1	iload #0
+2	iconst 2
+3	ilt
+4	if_false 8
+5	iconst 1
+6	istore #1
+7	goto 15
+8	iload #0
+9	iload #0
+10	iconst 1
+11	isub
+12	invokevirtual Test.sum
+13	iadd
+14	istore #1
+15	iload #1
+16	ireturn
+
+

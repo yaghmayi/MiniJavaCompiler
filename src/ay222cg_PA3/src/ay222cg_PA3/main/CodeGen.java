@@ -1,0 +1,18 @@
+package ay222cg_PA3.main;
+
+import java.io.File;
+
+import ay222cg_PA3.codeGeneration.ClassFile;
+import ay222cg_PA3.codeGeneration.CodeGenerator;
+
+public class CodeGen 
+{
+	public static void main(String[] arg) throws Exception
+	{
+		String baseFolder = new File("").getAbsolutePath() + "\\src\\ay222cg_PA3\\main\\Samples\\";
+		String javaFilePath = baseFolder + "Sum.java";
+		ClassFile classFile = CodeGenerator.generateCode(javaFilePath);
+		classFile.save(javaFilePath.replace(".java", ".tjc"));
+		classFile.print();
+	}
+}

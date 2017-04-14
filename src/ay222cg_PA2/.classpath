@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="ay222cg_PA2/unitTests/FailSamples/|ay222cg_PA2/unitTests/PassSamples/|ay222cg_PA2/unitTests/SymTblSamples/|ay222cg_PA2/main/MainTestSamples/" kind="src" path="src"/>
+	<classpathentry kind="src" path="antlr4"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
+	<classpathentry kind="lib" path="E:/Sources/antlr-4.5.1-complete.jar"/>
+	<classpathentry kind="lib" path="C:/Junit/hamcrest-core-1.3.jar"/>
+	<classpathentry kind="lib" path="C:/Junit/junit-4.12.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

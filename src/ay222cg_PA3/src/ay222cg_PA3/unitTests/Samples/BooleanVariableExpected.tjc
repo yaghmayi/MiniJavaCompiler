@@ -1,0 +1,30 @@
+Sum.main
+0	iconst 10
+1	invokevirtual Test.find
+2	print
+3	stop
+
+Test.find
+0	istore #0
+1	iconst 0
+2	istore #1
+3	iconst 0
+4	istore #2
+5	iload #1
+6	inot
+7	if_false 19
+8	iload #2
+9	iconst 1
+10	iadd
+11	istore #2
+12	iload #2
+13	iload #0
+14	ieq
+15	if_false 18
+16	iconst 1
+17	istore #1
+18	goto 5
+19	iload #1
+20	ireturn
+
+

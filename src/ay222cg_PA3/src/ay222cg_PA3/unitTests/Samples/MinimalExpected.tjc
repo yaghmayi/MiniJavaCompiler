@@ -1,0 +1,8 @@
+Minimal.main
+0	iconst 10
+1	iconst 3
+2	isub
+3	print
+4	stop
+
+

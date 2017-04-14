@@ -1,0 +1,613 @@
+package ay222cg_PA2.visitors;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import ay222cg_PA2.errors.CharAtError;
+import ay222cg_PA2.errors.UnbooleanConditionError;
+import ay222cg_PA2.errors.ConditionElementTypeError;
+import ay222cg_PA2.errors.Error;
+import ay222cg_PA2.errors.IndexTypeError;
+import ay222cg_PA2.errors.LengthError;
+import ay222cg_PA2.errors.MismatchAssignTypeError;
+import ay222cg_PA2.errors.MismatchMethodParametersSizeError;
+import ay222cg_PA2.errors.MismatchMethodParametersTypeError;
+import ay222cg_PA2.errors.MismatchOperationTypeError;
+import ay222cg_PA2.errors.MismatchReturnTypeError;
+import ay222cg_PA2.errors.OperationTypeError;
+import ay222cg_PA2.errors.PrintParameterTypeError;
+import ay222cg_PA2.errors.UndefienedMethodError;
+import ay222cg_PA2.errors.UndefinedClassError;
+import ay222cg_PA2.errors.UndefinedVariableError;
+import ay222cg_PA2.symbolTbl.MethodRecord;
+import ay222cg_PA2.symbolTbl.NameTypeRecord;
+import ay222cg_PA2.symbolTbl.ParameterRecord;
+import ay222cg_PA2.symbolTbl.Scope;
+import ay222cg_PA2.symbolTbl.ScopeTypes;
+import ay222cg_PA2.symbolTbl.SymbolTable;
+import cc1.ay222cg.examples.MiniJavaBaseVisitor;
+import cc1.ay222cg.examples.MiniJavaParser;
+import cc1.ay222cg.examples.MiniJavaParser.CallParameterContext;
+import cc1.ay222cg.examples.MiniJavaParser.DefineVarStContext;
+import cc1.ay222cg.examples.MiniJavaParser.MethodContext;
+import cc1.ay222cg.examples.MiniJavaParser.ObjectMethodCallContext;
+
+
+public class SemanticVisitor<object> extends MiniJavaBaseVisitor<object>  
+{
+	private SymbolTable symbolTable;
+	private List<Error> errors = new ArrayList<Error>();
+	
+	public SemanticVisitor(SymbolTable symbolTable)
+	{
+		this.symbolTable = symbolTable;
+	}
+	
+	public List<Error> getErrors()
+	{
+		return errors;
+	}
+	
+	@Override 
+	public object visitMainClass(MiniJavaParser.MainClassContext ctx) 
+	{ 
+		symbolTable.enterScope();
+			visit(ctx.mainMethod());
+		symbolTable.exitScope();
+		
+		return null;
+	}
+		
+	@Override 
+	public object visitClazz(MiniJavaParser.ClazzContext ctx) 
+	{ 
+		symbolTable.enterScope();
+			for (DefineVarStContext defineVarCtx : ctx.defineVarSt())
+				visit(defineVarCtx);
+			
+			for (MethodContext methodCtx : ctx.method())
+				visit(methodCtx);
+		symbolTable.exitScope();
+		
+		return null; 
+	}
+	
+	@Override 
+	public object visitMainMethod(MiniJavaParser.MainMethodContext ctx) 
+	{ 
+		symbolTable.enterScope();
+			visit(ctx.methodBody());
+		symbolTable.exitScope();
+	
+		return null;
+	
+	}
+	
+	@Override 
+	public object visitMethod(MiniJavaParser.MethodContext ctx) 
+	{ 
+		symbolTable.enterScope();
+			visit(ctx.methodBody());
+		symbolTable.exitScope();
+		
+		return null;
+	}
+	
+	@Override 
+	public object visitDefineVarSt(MiniJavaParser.DefineVarStContext ctx) 
+	{ 
+		String type = ctx.type().getText();
+		if (!isPrimitiveType(type))
+		{
+			if (!symbolTable.containsKey(type))
+				addError(new UndefinedClassError(getCurrentClassName(), getCurrentMethodName(), type));
+		}
+		return visitChildren(ctx); 
+	}
+	
+	
+	@Override 
+	public object visitAssignSt(MiniJavaParser.AssignStContext ctx) 
+	{ 
+		String assignTo = ctx.ID().getText();
+		String className = getCurrentClassName();
+		String methodName = getCurrentMethodName();
+				
+		if (!symbolTable.containsKey(assignTo))
+			addError(new UndefinedVariableError(className, methodName, assignTo));
+		else
+		{
+			NameTypeRecord assignToRecord = (NameTypeRecord) symbolTable.lookup(assignTo);
+			
+			if (ctx.operation().element().size() == 1 && ctx.operation().element().get(0).objectMethodCall() != null)
+			{
+				String assignFromType = getMethodType(ctx.operation().element().get(0).objectMethodCall());
+				if (assignFromType != null && !assignToRecord.getType().equals(assignFromType))
+					addError(new MismatchAssignTypeError(className, methodName, assignTo, ctx.operation().element().get(0).getText()));
+			}
+			else
+			{
+				List<String> elements = getElements(ctx.operation().getText());
+				String assignFrom =  elements.get(0);
+				if (isIdentifier(assignFrom))
+				{
+					if (!symbolTable.containsKey(assignFrom))
+						addError(new UndefinedVariableError(className, methodName, assignFrom));
+					else
+					{
+						NameTypeRecord assignFromRecord = (NameTypeRecord) symbolTable.lookup(assignFrom);
+						
+						if (!assignFromRecord.getType().equals(assignToRecord.getType()))
+							addError(new MismatchAssignTypeError(className, methodName, assignTo, assignFrom));
+					}
+				}
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	@Override 
+	public object visitArrayItem(MiniJavaParser.ArrayItemContext ctx) 
+	{
+		String arrayName = ctx.arrayName().getText();
+		String indexName = ctx.arrayIndex().getText();
+		String className = getCurrentClassName();
+		String methodName = getCurrentMethodName();
+		
+		if (!symbolTable.containsKey(arrayName))
+			addError(new UndefinedVariableError(className, methodName, arrayName));
+		else if (isIdentifier(indexName))
+		{
+			if (!symbolTable.containsKey(indexName))
+				addError(new UndefinedVariableError(className, methodName, indexName));
+			else
+			{
+				NameTypeRecord indexRecord = (NameTypeRecord) symbolTable.lookup(indexName);
+				if (!isIntegerType(indexRecord.getType()))
+					addError(new IndexTypeError(className, methodName, arrayName, indexName));
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	@Override 
+	public object visitReturnSt(MiniJavaParser.ReturnStContext ctx) 
+	{ 
+		if (ctx.ID() != null)
+		{
+			String returnVal = ctx.ID().getText();
+			
+			if (!isTrueFalse(returnVal))
+			{
+				String className = getCurrentClassName();
+				String methodName = getCurrentMethodName();
+				MethodRecord mReord = ((MethodRecord) symbolTable.getCurrentScope().getParent().getRecord(methodName));
+				
+				if (!symbolTable.containsKey(returnVal))
+					addError(new UndefinedVariableError(className, methodName, returnVal));
+				else
+				{
+					NameTypeRecord ntRecord = ((NameTypeRecord) symbolTable.lookup(returnVal));
+					if (!ntRecord.getType().equals(mReord.getType()))
+						addError(new MismatchReturnTypeError(className, methodName, mReord.getType(), ntRecord.getType()));
+				}
+			}
+		}
+			
+		return visitChildren(ctx); 
+	}
+	
+	@Override 
+	public object visitObjectMethodCall(MiniJavaParser.ObjectMethodCallContext ctx) 
+	{ 
+		ObjectMethodCallInfo callInfo = createObjectMethodCallInfo(ctx);
+		
+		if (!callInfo.getObjectName().equals("this") && !symbolTable.containsKey(callInfo.getObjectName()))
+			addError(new UndefinedVariableError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getObjectName()));
+		else 
+		{
+			if (callInfo.getClassName().equals("this"))
+			{
+				if (!symbolTable.getCurrentScope().getParent().containsRecord(callInfo.getTargetMethodName()))
+					addError(new UndefienedMethodError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getClassName(), callInfo.getTargetMethodName()));
+			}
+			else
+			{
+				if (isPrimitiveType(callInfo.getTargetClassName()))
+				{
+					if (callInfo.getTargetMethodName().equals("charAt"))
+					{
+						if (!callInfo.getTargetClassName().equals("String"))
+							addError(new CharAtError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getObjectName()));
+					}
+					else if (callInfo.getTargetMethodName().equals("length"))
+					{
+						if (!callInfo.getTargetClassName().equals("String") && !callInfo.getTargetClassName().equals("int[]"))
+							addError(new LengthError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getObjectName()));
+					}
+				}
+				else
+				{
+					Scope programScope = symbolTable.getCurrentScope().getParent().getParent();
+					Scope targetClassScope = programScope.getChildScope(callInfo.getTargetClassName());
+					
+					if (!targetClassScope.containsRecord(callInfo.getTargetMethodName()))
+						addError(new UndefienedMethodError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getTargetClassName(), callInfo.getTargetMethodName()));
+					else
+					{
+						if (callInfo.getCallParameters().size() != callInfo.getTargetParameters().size())
+							addError(new MismatchMethodParametersSizeError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getTargetClassName(), callInfo.getTargetMethodName()));
+						else
+						{
+							for (int i=0; i< callInfo.getCallParameters().size(); i++)
+							{
+								NameTypeRecord callParam = callInfo.getCallParameters().get(i);
+								ParameterRecord targetParam = callInfo.getTargetParameters().get(i);
+								
+								if (callParam.getType() != null && !callParam.getType().equals(targetParam.getType()))
+								{
+									addError(new MismatchMethodParametersTypeError(callInfo.getClassName(), callInfo.getMethodName(), callInfo.getTargetClassName(), callInfo.getTargetMethodName()));
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	@Override 
+	public object visitCondition(MiniJavaParser.ConditionContext ctx) 
+	{
+		List<String> elements = getElements(ctx.getText());
+		List<String> undefinedVariables = new ArrayList<String>();
+		List<String> checkedVariables = new ArrayList<>();
+		
+		for (String element : elements)
+		{
+			if (isIdentifier(element))
+			{
+				String className = getCurrentClassName();
+				String methodName = getCurrentMethodName();
+				
+				if (!symbolTable.containsKey(element))
+				{
+					if (!undefinedVariables.contains(element))
+					{
+						undefinedVariables.add(element);
+						addError(new UndefinedVariableError(className, methodName, element));
+					}
+				}
+				else
+				{
+					if (!checkedVariables.contains(element))
+					{
+						checkedVariables.add(element);
+						
+						NameTypeRecord elementRecord = (NameTypeRecord) symbolTable.lookup(element);
+						if (elements.size() == 1)
+						{
+							if (!elementRecord.getType().equals("boolean"))
+								addError(new UnbooleanConditionError(className, methodName, element));
+						}
+						else
+						{
+							if (!isIntegerType(elementRecord.getType()) && !isCharacterType(elementRecord.getType()))
+								addError(new ConditionElementTypeError(className, methodName, element));
+						}
+					}
+				}
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	private ObjectMethodCallInfo createObjectMethodCallInfo(ObjectMethodCallContext ctx)
+	{
+		String className = getCurrentClassName();
+		String methodName = getCurrentMethodName();
+		String targetMethodName = ctx.methodCall().methodName().getText(); // a.m() => m() => m
+		String objectName = ctx.objectName().getText();
+		
+		String targetClassName = null;
+		if (objectName.equals("this"))
+			targetClassName = className;
+		else
+		{
+			NameTypeRecord 	npRecord = (NameTypeRecord) symbolTable.lookup(objectName);
+			targetClassName = npRecord.getType();
+		}
+		
+		ObjectMethodCallInfo callInfo = new ObjectMethodCallInfo(className, methodName, targetClassName, targetMethodName, objectName);
+		
+		
+		List<NameTypeRecord> callParameters = new ArrayList<NameTypeRecord>();
+		if (ctx.methodCall().callParams() != null)
+		{
+			for (CallParameterContext callParameterCtx : ctx.methodCall().callParams().callParameter())
+			{
+				NameTypeRecord pRecord = null;
+				if (callParameterCtx.element().ID() != null)
+				{
+					String parameterName = callParameterCtx.element().ID().getText();
+					
+					if (isTrueFalse(parameterName))
+						pRecord = new NameTypeRecord(parameterName, "boolean");
+					else 
+						pRecord = (NameTypeRecord) symbolTable.lookup(parameterName);
+				}
+				else
+				{
+					String parameterName = callParameterCtx.element().getText();
+					String parameterType = null;
+					if (callParameterCtx.element().objectMethodCall() != null)
+					{
+						parameterType = getMethodType(callParameterCtx.element().objectMethodCall());
+//						String paramObjectName = callParameterCtx.element().objectMethodCall().objectName().getText();
+//						if (symbolTable.containsKey(paramObjectName))
+//						{
+//							NameTypeRecord objRecord = (NameTypeRecord) symbolTable.lookup(paramObjectName);
+//							Scope programScope = symbolTable.getCurrentScope().getParent().getParent();
+//							if (programScope.containsRecord(objRecord.getType()))
+//							{
+//								Scope paramClassScope = programScope.getChildScope(objRecord.getType());
+//								MethodRecord paramMethodRecord = (MethodRecord) paramClassScope.getRecord(callParameterCtx.element().objectMethodCall().methodCall().methodName().getText());
+//								parameterType = paramMethodRecord.getType();
+//							}
+//						}
+					}
+					pRecord = new NameTypeRecord(parameterName, parameterType);
+				}
+				
+				callParameters.add(pRecord);
+			}
+		}
+
+		callInfo.setCallParameters(callParameters);
+		
+		Scope programScope = symbolTable.getCurrentScope().getParent().getParent();
+		Scope targetClassScope = programScope.getChildScope(targetClassName);
+		if (!isPrimitiveType(targetClassName) && targetClassScope != null)
+		{
+			if (targetClassScope.containsRecord(targetMethodName))
+			{
+				MethodRecord targetMethodRecoed = (MethodRecord) targetClassScope.getRecord(targetMethodName);
+				callInfo.setTargetParameters(targetMethodRecoed.getParameters());
+			}
+		}
+		
+		return callInfo;
+	}
+	
+	private String getMethodType(ObjectMethodCallContext objMethodCallCtx)
+	{
+		String methodType = null;
+		
+		String paramObjectName = objMethodCallCtx.objectName().getText();
+		if (symbolTable.containsKey(paramObjectName))
+		{
+			NameTypeRecord objRecord = (NameTypeRecord) symbolTable.lookup(paramObjectName);
+			Scope programScope = symbolTable.getCurrentScope().getParent().getParent();
+			if (programScope.containsRecord(objRecord.getType()))
+			{
+				Scope paramClassScope = programScope.getChildScope(objRecord.getType());
+				String methodName = objMethodCallCtx.methodCall().methodName().getText();
+				
+				if (paramClassScope.containsRecord(methodName))
+				{
+					MethodRecord paramMethodRecord = (MethodRecord) paramClassScope.getRecord(methodName);
+					methodType = paramMethodRecord.getType();
+				}
+			}
+		}
+		
+		return methodType;
+	}
+	
+	
+	@Override 
+	public object visitPrintSt(MiniJavaParser.PrintStContext ctx) 
+	{ 
+		List<String> elements = getElements(ctx.operation().getText());
+		List<String> checkedElements = new ArrayList<String>();
+		
+		String className = getCurrentClassName();
+		String methodNmae = getCurrentMethodName();
+		
+		for (String element : elements)
+		{
+			if (isIdentifier(element))
+			{
+				if (symbolTable.containsKey(element))
+				{
+					NameTypeRecord elementRecord = (NameTypeRecord) symbolTable.lookup(element);
+					if (!isIntegerType(elementRecord.getType()) && !elementRecord.getType().equals("String"))
+					{
+						if (!checkedElements.contains(element))
+						{
+							checkedElements.add(element);
+							addError(new PrintParameterTypeError(className, methodNmae, element));
+						}
+					}
+				}
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	@Override 
+	public object visitOperation(MiniJavaParser.OperationContext ctx) 
+	{
+		//i = j1; => skip this because it has been considered in assignSt 
+		if (ctx.children.size() > 1) 
+		{
+			
+			List<String> definedElements = new ArrayList<String>();
+			List<String> undefinedElements = new ArrayList<String>();
+			List<String> elements = getElements(ctx.getText());
+			List<String> chekedOperationTypeElements = new ArrayList<String>();
+			for (String element : elements)
+			{
+				if (isIdentifier(element))
+				{
+					if (!symbolTable.containsKey(element))
+					{
+						if (!undefinedElements.contains(element))
+							undefinedElements.add(element);
+					}
+					else if (!definedElements.contains(element))
+						definedElements.add(element);
+				}
+			}
+			
+			String className = getCurrentClassName();
+			String methodName = getCurrentMethodName();
+			for (int i=0; i<undefinedElements.size();i++)
+				addError(new UndefinedVariableError(className, methodName, undefinedElements.get(i)));
+			for (int i=0; i<definedElements.size()-1;i++)
+			{
+				NameTypeRecord elementRecord = (NameTypeRecord) symbolTable.lookup(definedElements.get(i));
+				NameTypeRecord nextelementRecord = (NameTypeRecord) symbolTable.lookup(definedElements.get(i+1));
+				
+				if (!isPrimitiveType(elementRecord.getType()) || elementRecord.getType().equals("boolean"))
+				{
+					if (!chekedOperationTypeElements.contains(elementRecord.getName()))
+					{
+						chekedOperationTypeElements.add(elementRecord.getName());
+						addError(new OperationTypeError(className, methodName, elementRecord.getName(), elementRecord.getType()));
+					}
+				}
+				
+				if (!isPrimitiveType(nextelementRecord.getType()) || nextelementRecord.getType().equals("boolean"))
+				{
+					if (!chekedOperationTypeElements.contains(nextelementRecord.getName()))
+					{
+						chekedOperationTypeElements.add(nextelementRecord.getName());
+						addError(new OperationTypeError(className, methodName, nextelementRecord.getName(), nextelementRecord.getType()));
+					}
+				}
+				
+				if (!elementRecord.getType().equals(nextelementRecord.getType()))
+					addError(new MismatchOperationTypeError(className, methodName, elementRecord.getName(), nextelementRecord.getName()));
+			}
+		}
+		
+		return visitChildren(ctx); 
+	}
+	
+	private void addError(Error error)
+	{
+		errors.add(error);
+	}
+	
+	public void printErrors()
+	{
+//		String ansi_Rest = "\u001B[0m";
+//		String ansi_Red  = "\u001B[31m";
+		for (Error error : errors)
+			System.out.println(error);
+	}
+	
+	private boolean isPrimitiveType(String type)
+	{
+		String[] primitiveTypes = new String[] {"boolean", "Character", "char", "String", "Integer", "int[]", "int"};
+		for (String t : primitiveTypes)
+		{
+			if (t.equals(type))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isIdentifier(String text)
+	{
+		if (Character.isLetter(text.charAt(0)) || text.charAt(0) == '_')
+		{
+			if (!isTrueFalse(text) && !isMethodCall(text) && !containsOperator(text) && !text.contains("["))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean containsOperator(String text)
+	{
+		return text.contains("+") || text.contains("-") || text.contains("*") || text.contains("/"); 
+	}
+	
+	private boolean isTrueFalse(String text)
+	{
+		return (text.equals("false") || text.equals("true"));
+	}
+	
+	private boolean isMethodCall(String text)
+	{
+		if (Character.isLetter(text.charAt(0)) || text.charAt(0) == '_')
+		{
+			if (text.contains(".") || text.endsWith(")"))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private List<String> getElements(String operationText)
+	{
+		operationText = operationText.replace('+', ' ')
+									 .replace('-', ' ')
+									 .replace('*', ' ')
+									 .replace('/', ' ')
+									 .replace('%', ' ')
+									 .replace("==", " ")
+									 .replace(">=", " ")
+									 .replace("<=", " ")
+									 .replace('<', ' ')
+									 .replace('>', ' ');
+		String[] elementsArray = operationText.split(" ");
+		
+		List<String> elements = new ArrayList<String>();
+		for (String element : elementsArray)
+			elements.add(element);
+		
+		return elements;
+	}
+	
+	private String getCurrentClassName()
+	{
+		String className = null;
+		if (symbolTable.getCurrentScope().getScopType() == ScopeTypes.Method)
+			className = symbolTable.getCurrentScope().getParent().getScopName();
+		else if (symbolTable.getCurrentScope().getScopType() == ScopeTypes.Class)
+			className = symbolTable.getCurrentScope().getScopName();
+		
+		return className;
+	}
+	
+	private String getCurrentMethodName()
+	{
+		String methodName = null;
+		
+		if (symbolTable.getCurrentScope().getScopType() == ScopeTypes.Method)
+			methodName = symbolTable.getCurrentScope().getScopName();
+		
+		return methodName;
+	}
+	
+	private boolean isIntegerType(String type)
+	{
+		return type.equals("int") || type.equals("Integer"); 
+	}
+	
+	private boolean isCharacterType(String type)
+	{
+		return type.equals("char") || type.equals("Character"); 
+	}
+}

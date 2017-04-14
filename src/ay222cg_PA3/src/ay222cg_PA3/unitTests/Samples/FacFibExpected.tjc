@@ -1,0 +1,88 @@
+FacFib.main
+0	iconst 10
+1	iconst 5
+2	invokevirtual FacFibImpl.compute
+3	print
+4	stop
+
+FacFibImpl.compute
+0	istore #0
+1	istore #1
+2	iload #0
+3	iconst 1
+4	ilt
+5	inot
+6	iload #1
+7	iconst 1
+8	ilt
+9	inot
+10	iand
+11	if_false 25
+12	iload #0
+13	invokevirtual FacFibImpl.computeFac
+14	istore #2
+15	iload #2
+16	print
+17	iload #1
+18	invokevirtual FacFibImpl.computeFib
+19	istore #3
+20	iload #3
+21	print
+22	iconst 1
+23	istore #4
+24	goto 27
+25	iconst 0
+26	istore #4
+27	iload #4
+28	ireturn
+
+FacFibImpl.computeFac
+0	istore #0
+1	iload #0
+2	iconst 1
+3	ilt
+4	if_false 8
+5	iconst 1
+6	istore #1
+7	goto 15
+8	iload #0
+9	iload #0
+10	iconst 1
+11	isub
+12	invokevirtual FacFibImpl.computeFac
+13	imul
+14	istore #1
+15	iload #1
+16	ireturn
+
+FacFibImpl.computeFib
+0	istore #0
+1	iconst 0
+2	istore #1
+3	iconst 1
+4	istore #2
+5	iload #0
+6	istore #3
+7	iconst 1
+8	istore #4
+9	iload #4
+10	iload #0
+11	ilt
+12	if_false 26
+13	iload #2
+14	iload #1
+15	iadd
+16	istore #3
+17	iload #2
+18	istore #1
+19	iload #3
+20	istore #2
+21	iload #4
+22	iconst 1
+23	iadd
+24	istore #4
+25	goto 9
+26	iload #3
+27	ireturn
+
+

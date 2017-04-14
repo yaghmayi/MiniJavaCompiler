@@ -1,0 +1,44 @@
+FacFib.main
+0	iconst 10
+1	iconst 5
+2	invokevirtual FacFibImpl.compute
+3	print
+4	stop
+
+Foo.compute
+0	istore #0
+1	istore #1
+2	iload #0
+3	iconst 1
+4	ilt
+5	inot
+6	iload #1
+7	iconst 1
+8	ilt
+9	iand
+10	if_false 13
+11	iconst 20
+12	ireturn
+13	iconst 30
+14	ireturn
+
+Foo.advancedCompute
+0	istore #0
+1	istore #1
+2	iconst 1
+3	iload #1
+4	ilt
+5	inot
+6	iload #0
+7	iconst 1
+8	ilt
+9	inot
+10	iand
+11	inot
+12	if_false 15
+13	iload #0
+14	ireturn
+15	iload #1
+16	ireturn
+
+

@@ -1,0 +1,24 @@
+FacFib.main
+0	iconst 10
+1	iconst 5
+2	invokevirtual FacFibImpl.compute
+3	print
+4	stop
+
+Foo.compute
+0	istore #0
+1	istore #1
+2	iload #0
+3	iconst 1
+4	ilt
+5	iload #1
+6	iconst 1
+7	ilt
+8	iand
+9	if_false 12
+10	iconst 20
+11	ireturn
+12	iconst 30
+13	ireturn
+
+
