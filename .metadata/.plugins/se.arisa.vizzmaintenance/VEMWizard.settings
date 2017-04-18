@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="VEMWizard">
+	<item value="Test" key="groupName"/>
+	<item value="compiler;runner" key="checkedProjects"/>
+	<item value="true" key="isGroup"/>
+</section>
